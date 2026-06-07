@@ -1,0 +1,6 @@
+# Build things
+bin/
+obj/
+
+docs/
+*[Rr][Ee][Aa][Dd][Mm][Ee]*
