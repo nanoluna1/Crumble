@@ -20,6 +20,8 @@ namespace Main
         public static MelonPreferences_Entry<bool>  PersistUntilSceneChange;
         public static MelonPreferences_Entry<float> SliceRandomness;
         public static MelonPreferences_Entry<bool>  DebugLogging;
+        public static MelonPreferences_Entry<bool>  RockCamVisibility;
+        public static MelonPreferences_Entry<int>   ChunkSize;
 
         public static void Init()
         {
@@ -37,17 +39,20 @@ namespace Main
                                     false, false, (ValueValidator)(object)new ValueRange<float>(0.01f, 100f), (string)null);
             AngularDrag         = Category.CreateEntry<float>("AngularDrag", 0.5f, "Angular Drag", "Higher = chunks stop spinning sooner",
                                     false, false, (ValueValidator)(object)new ValueRange<float>(0f, 20f), (string)null);
-            MaxConcurrentDebris = Category.CreateEntry<int>("MaxConcurrentDebris", 120, "Max Concurrent Debris", "Hard cap on live chunks (VR safety). Ignored when PersistUntilSceneChange is on",
-                                    false, false, (ValueValidator)(object)new ValueRange<int>(8, 1000), (string)null);
-            PersistUntilSceneChange = Category.CreateEntry("PersistUntilSceneChange", true, "Persist Until Scene Change", "If true, chunks never despawn on a timer and the concurrent cap is ignored; they clear only on map/scene change (VR perf risk if you spam destructions)");
+            MaxConcurrentDebris = Category.CreateEntry<int>("MaxConcurrentDebris", 65, "Chunk Limit", "Hard cap on live chunks (VR safety). Applies in all modes, including Chaos",
+                                    false, false, (ValueValidator)(object)new ValueRange<int>(1, 500), (string)null);
+            PersistUntilSceneChange = Category.CreateEntry("PersistUntilSceneChange", false, "Persist Until Scene Change", "If true, chunks never despawn on a timer and the concurrent cap is ignored; they clear only on map/scene change (VR perf risk if you spam destructions)");
             SliceRandomness     = Category.CreateEntry<float>("SliceRandomness", 0.5f, "Slice Randomness", "0 = uniform cuts, 1 = chaotic cuts",
                                     false, false, (ValueValidator)(object)new ValueRange<float>(0f, 1f), (string)null);
             DebugLogging        = Category.CreateEntry("DebugLogging", false, "Debug Logging", "Verbose Crumble logs");
+            RockCamVisibility   = Category.CreateEntry("RockCamVisibility", true, "Rock Cam Visibility", "Show debris chunks in the in-game live/recording (Rock) camera");
+            ChunkSize           = Category.CreateEntry<int>("ChunkSize", 5, "Chunk Size", "Chunk size multiplier (5 = normal)",
+                                    false, false, (ValueValidator)(object)new ValueRange<int>(1, 10), (string)null);
         }
 
         public static void Log(string msg)
         {
-            if (DebugLogging != null && DebugLogging.Value) MelonLogger.Msg("[Crumble] " + msg);
+            if (DebugLogging != null && DebugLogging.Value) Main.Logger.Msg(msg);
         }
     }
 }

@@ -4,6 +4,7 @@ using HarmonyLib;
 using Il2CppInterop.Runtime.Injection;
 using MelonLoader;
 using UnityEngine;
+using LogInstance = MelonLoader.MelonLogger.Instance; // alias so logging never references MelonLogger directly
 
 [assembly: MelonInfo(typeof(Main.Main), "Crumble", "1.0.0", "Nano")]
 [assembly: MelonColor(127, 52, 235, 131)]
@@ -14,20 +15,25 @@ namespace Main
 {
     public class Main : MelonMod
     {
+        // Shared Logger instance (auto-prefixes "[Crumble]"). Set first thing in init so every
+        // static class can log through Main.Logger instead of any static logger.
+        public static LogInstance Logger;
+
         public override void OnInitializeMelon()
         {
+            Logger = LoggerInstance;
             try
             {
                 Preferences.Init();
                 try { ClassInjector.RegisterTypeInIl2Cpp<DebrisChunk>(); }
-                catch (Exception ex) { MelonLogger.Warning($"[Crumble] DebrisChunk register: {ex.Message}"); }
+                catch (Exception ex) { Logger.Warning($"DebrisChunk register: {ex.Message}"); }
                 HarmonyInstance.PatchAll(Assembly.GetExecutingAssembly());
-                MelonLogger.Msg("[Crumble] Initialized and patched Structure.Kill.");
+                Logger.Msg("Initialized and patched Structure.Kill.");
                 RumbleModdingAPI.RMAPI.Actions.onMapInitialized += OnMapInitialized; // delegate is Action<string> (map name)
             }
             catch (Exception e)
             {
-                MelonLogger.Error($"[Crumble] Init failed: {e}");
+                Logger.Error($"Init failed: {e}");
             }
         }
 
@@ -45,26 +51,32 @@ namespace Main
                 ChunkCache.Clear(); // meshes differ per map
                 MelonCoroutines.Start(ChunkCache.PreWarm());
             }
-            catch (System.Exception e) { MelonLogger.Error($"[Crumble] map-init failed: {e}"); }
+            catch (System.Exception e) { Logger.Error($"map-init failed: {e}"); }
         }
 
         // ── Input toggle ───────────────────────────────────────────────────
-        // Hold Left Trigger + press X (left primary) to open/close the settings panel.
-        // Only active in Gym or Park; logs the actual scene name on every rising edge.
+        // Hold Left Trigger (left hand) + press B (right controller secondary) to open/close
+        // the settings panel. Only active in Gym or Park; logs the scene name on every rising edge.
         private bool _comboWasDown;
+        private int _camFrame;
 
         public override void OnUpdate()
         {
             try
             {
+                // Continuously (throttled) enforce the debris layer on cameras so the live/rock-cam
+                // feed reliably matches RockCamVisibility — the rock cam is (re)created when picked up
+                // and the game resets its cullingMask, which wiped one-shot applications.
+                if (++_camFrame >= 10) { _camFrame = 0; DebrisLayers.EnsureCamerasSeeDebris(); }
+
                 float trig  = RumbleModdingAPI.RMAPI.Calls.ControllerMap.LeftController.GetTrigger();
-                float x     = RumbleModdingAPI.RMAPI.Calls.ControllerMap.LeftController.GetPrimary();
-                bool  combo = trig > 0.5f && x > 0.5f;
+                float b     = RumbleModdingAPI.RMAPI.Calls.ControllerMap.RightController.GetSecondary(); // B button
+                bool  combo = trig > 0.5f && b > 0.5f;
 
                 if (combo && !_comboWasDown)
                 {
                     string scene = RumbleModdingAPI.RMAPI.Calls.Scene.GetSceneName();
-                    MelonLogger.Msg($"[Crumble] Menu combo pressed in scene '{scene}'.");
+                    Logger.Msg($"Menu combo pressed in scene '{scene}'.");
 
                     if (scene == "Gym" || scene == "Park")
                     {
@@ -72,7 +84,7 @@ namespace Main
                     }
                     else
                     {
-                        MelonLogger.Msg($"[Crumble] Settings menu only opens in Gym or Park (current: '{scene}').");
+                        Logger.Msg($"Settings menu only opens in Gym or Park (current: '{scene}').");
                     }
                 }
 
@@ -80,7 +92,7 @@ namespace Main
             }
             catch (Exception ex)
             {
-                MelonLogger.Error($"[Crumble] OnUpdate error: {ex}");
+                Logger.Error($"OnUpdate error: {ex}");
             }
         }
     }

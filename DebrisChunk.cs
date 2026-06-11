@@ -35,9 +35,10 @@ namespace Main
         {
             _lifetime = lifetime;
             _node = Live.AddLast(this);
-            // When persisting until scene change, there is no cap — chunks accumulate and
-            // are cleared only when Unity destroys the scene (OnDestroy prunes the registry).
-            if (!Preferences.PersistUntilSceneChange.Value) EnforceCap();
+            // The Chunk Limit is a hard cap that applies in EVERY mode (including Chaos): when over
+            // the limit the oldest chunk is removed immediately. In Chaos chunks still never despawn
+            // on a timer — they're only evicted to stay under the cap.
+            EnforceCap();
         }
 
         private static void EnforceCap()
@@ -118,7 +119,7 @@ namespace Main
                     }
                     catch (Exception ex)
                     {
-                        MelonLogger.Warning($"[Crumble] Alpha-fade shader setup failed, falling back to shrink: {ex.Message}");
+                        Main.Logger.Warning($"Alpha-fade shader setup failed, falling back to shrink: {ex.Message}");
                         goto useShrink;
                     }
 

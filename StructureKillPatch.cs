@@ -24,7 +24,7 @@ namespace Main
             }
             catch (Exception e)
             {
-                MelonLogger.Error($"[Crumble] Kill prefix threw (gameplay unaffected): {e}");
+                Main.Logger.Error($"Kill prefix threw (gameplay unaffected): {e}");
             }
             return true; // never block the game's death logic
         }

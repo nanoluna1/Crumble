@@ -44,7 +44,35 @@ namespace Main
             }
             Physics.IgnoreLayerCollision(DebrisLayer, DebrisLayer, false); // chunks pile on each other
 
+            EnsureCamerasSeeDebris();
             Preferences.Log($"Debris layer = {DebrisLayer}");
+        }
+
+        private static bool _loggedCams;
+
+        // The player's headset always renders debris. Every OTHER camera (RecordingCamera,
+        // the live/rock-cam feed, mirrors, etc.) shows debris only when RockCamVisibility is on.
+        public static void EnsureCamerasSeeDebris()
+        {
+            if (DebrisLayer < 0) return;
+            int mask = 1 << DebrisLayer;
+            bool show = Preferences.RockCamVisibility.Value;
+
+            var cams = Camera.allCameras;
+            if (cams == null) return;
+            foreach (var cam in cams)
+            {
+                if (cam == null) continue;
+                string n = cam.name ?? string.Empty;
+                bool isHeadset = n == "Headset" || n.ToLowerInvariant().Contains("headset");
+
+                if (!_loggedCams)
+                    Preferences.Log($"Camera '{cam.name}' layer={cam.gameObject.layer} headset={isHeadset} show={(isHeadset || show)}");
+
+                if (isHeadset || show) cam.cullingMask |= mask;   // visible
+                else                   cam.cullingMask &= ~mask;  // hidden in non-headset cams
+            }
+            _loggedCams = true;
         }
 
         private static int FindUnusedLayer()

@@ -9,6 +9,7 @@ namespace Main
     public static class ChunkCache
     {
         private static readonly Dictionary<string, ChunkData[]> Cache = new Dictionary<string, ChunkData[]>();
+        private static readonly Dictionary<int, (Mesh mesh, Bounds bounds)> Seen = new Dictionary<int, (Mesh, Bounds)>();
 
         private static string MakeKey(Mesh mesh, int count, bool minecraft)
             => $"{mesh.GetInstanceID()}|{count}|{minecraft}";
@@ -23,6 +24,9 @@ namespace Main
         // Build + store geometry for one mesh (used by pre-warm and lazy fallback).
         public static ChunkData[] Build(Mesh mesh, Bounds bounds)
         {
+            // Remember this source mesh so PrewarmCurrent() can rebuild it on settings changes.
+            Seen[mesh.GetInstanceID()] = (mesh, bounds);
+
             int count = Preferences.ChunksPerBreak.Value;
             bool minecraft = Preferences.ChunkStyleMinecraft.Value;
             string key = MakeKey(mesh, count, minecraft);
@@ -79,6 +83,21 @@ namespace Main
             Preferences.Log($"Pre-warm complete: {seen.Count} structure meshes cached.");
         }
 
+        // Rebuild geometry for every mesh we've seen, at the CURRENT settings, so a Style or
+        // Slices-per-structure change is already cached before the next break (no hot-path lag).
+        public static System.Collections.IEnumerator PrewarmCurrent()
+        {
+            // snapshot so Build() writing back into Seen can't disturb iteration
+            var snapshot = new System.Collections.Generic.List<(Mesh mesh, Bounds bounds)>(Seen.Values);
+            foreach (var entry in snapshot)
+            {
+                if (entry.mesh == null) continue;
+                Build(entry.mesh, entry.bounds);
+                yield return null; // spread across frames
+            }
+            Preferences.Log($"Pre-warmed {snapshot.Count} meshes at current settings.");
+        }
+
         public static void Clear()
         {
             // new Mesh() allocates native memory the GC won't reclaim; destroy cached
@@ -87,6 +106,7 @@ namespace Main
                 for (int i = 0; i < arr.Length; i++)
                     if (arr[i].Mesh != null) UnityEngine.Object.Destroy(arr[i].Mesh);
             Cache.Clear();
+            Seen.Clear();
         }
     }
 }

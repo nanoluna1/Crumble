@@ -10,6 +10,10 @@ namespace Main
         {
             try
             {
+                // Make sure every active camera (incl. the live/recording "Rock Camera") renders
+                // the debris layer — it may have been toggled on since the last break.
+                DebrisLayers.EnsureCamerasSeeDebris();
+
                 var renderer = structure.GetComponentInChildren<MeshRenderer>();
                 var filter   = structure.GetComponentInChildren<MeshFilter>();
                 if (renderer == null || filter == null || filter.sharedMesh == null)
@@ -31,7 +35,7 @@ namespace Main
             }
             catch (Exception e)
             {
-                MelonLogger.Error($"[Crumble] Spawn failed (gameplay unaffected): {e}");
+                Main.Logger.Error($"Spawn failed (gameplay unaffected): {e}");
             }
         }
 
@@ -45,7 +49,8 @@ namespace Main
             go.transform.position = pivot.TransformPoint(c.LocalOffset);
             go.transform.rotation = pivot.rotation * Quaternion.Euler(
                 UnityEngine.Random.Range(0, 360), UnityEngine.Random.Range(0, 360), UnityEngine.Random.Range(0, 360));
-            go.transform.localScale = pivot.lossyScale;
+            float sizeMul = Preferences.ChunkSize.Value / 5f; // 5 = 1x (current), 1 = 0.2x, 10 = 2x
+            go.transform.localScale = pivot.lossyScale * sizeMul;
 
             var mf = go.AddComponent<MeshFilter>();
             mf.sharedMesh = c.Mesh;
@@ -61,7 +66,8 @@ namespace Main
             rb.angularDrag = Preferences.AngularDrag.Value; // angularDrag compiles (angularDamping is ArticulationBody)
             Vector3 ls = pivot.lossyScale;
             float volume = c.Mesh.bounds.size.x * c.Mesh.bounds.size.y * c.Mesh.bounds.size.z
-                           * Mathf.Abs(ls.x * ls.y * ls.z); // chunk is simulated at lossyScale
+                           * Mathf.Abs(ls.x * ls.y * ls.z) // chunk is simulated at lossyScale
+                           * sizeMul * sizeMul * sizeMul;   // scale volume by size multiplier
             rb.mass = Mathf.Max(0.05f, volume * Preferences.MassScale.Value);
 
             var chunk = go.AddComponent<DebrisChunk>();
